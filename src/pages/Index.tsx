@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { Navigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { VideoUploader } from "@/components/VideoUploader";
 import { QualitySelector } from "@/components/QualitySelector";
@@ -6,15 +7,29 @@ import { ProcessingAnimation } from "@/components/ProcessingAnimation";
 import { ResultPreview } from "@/components/ResultPreview";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, Zap, Shield, Clock } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 type AppState = "home" | "processing" | "result";
 
 const Index = () => {
+  const { user, loading } = useAuth();
   const [appState, setAppState] = useState<AppState>("home");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedQuality, setSelectedQuality] = useState("1080p");
   const [progress, setProgress] = useState(0);
   const [resultVideoUrl, setResultVideoUrl] = useState<string>("");
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
