@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { VideoUploader } from "@/components/VideoUploader";
 import { QualitySelector } from "@/components/QualitySelector";
 import { ProcessingAnimation } from "@/components/ProcessingAnimation";
 import { ResultPreview } from "@/components/ResultPreview";
+import { AuthModal } from "@/components/AuthModal";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, Zap, Shield, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,21 +18,14 @@ const Index = () => {
   const [selectedQuality, setSelectedQuality] = useState("1080p");
   const [progress, setProgress] = useState(0);
   const [resultVideoUrl, setResultVideoUrl] = useState<string>("");
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
+    // Show auth modal if user is not logged in
+    if (!user) {
+      setShowAuthModal(true);
+    }
   };
 
   const handleClearFile = () => {
@@ -41,6 +34,12 @@ const Index = () => {
 
   const handleStartProcessing = () => {
     if (!selectedFile) return;
+    
+    // If not logged in, show auth modal
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
 
     setAppState("processing");
     setProgress(0);
@@ -231,6 +230,12 @@ const Index = () => {
           <p>© 2024 VideoHD. AI-powered video enhancement.</p>
         </div>
       </footer>
+
+      {/* Auth Modal */}
+      <AuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => setShowAuthModal(false)} 
+      />
     </div>
   );
 };
