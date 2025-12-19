@@ -1,1 +1,7 @@
 project_id = "vhtefncsgzaewxyszjlg"
+
+[functions.generate-title]
+verify_jwt = false
+
+[functions.generate-thumbnail]
+verify_jwt = false

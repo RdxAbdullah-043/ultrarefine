@@ -14,7 +14,7 @@ export const Header = () => {
             <Sparkles className="w-5 h-5 text-primary-foreground" />
           </div>
           <span className="text-xl font-display font-bold text-foreground">
-            Video<span className="text-gradient">HD</span>
+            Title<span className="text-gradient">Gen</span>
           </span>
         </Link>
         <nav className="flex items-center gap-4 md:gap-6">
