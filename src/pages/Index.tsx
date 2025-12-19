@@ -1,92 +1,112 @@
 import { useState } from "react";
 import { Header } from "@/components/Header";
-import { VideoUploader } from "@/components/VideoUploader";
-import { QualitySelector } from "@/components/QualitySelector";
-import { ProcessingAnimation } from "@/components/ProcessingAnimation";
-import { ResultPreview } from "@/components/ResultPreview";
+import { TopicInput } from "@/components/TopicInput";
+import { GeneratingAnimation } from "@/components/GeneratingAnimation";
+import { GenerationResult } from "@/components/GenerationResult";
 import { AuthModal } from "@/components/AuthModal";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Zap, Shield, Clock } from "lucide-react";
+import { Sparkles, Zap, Youtube, ImageIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-type AppState = "home" | "processing" | "result";
+type AppState = "home" | "generating" | "result";
+type GenerationStep = "titles" | "thumbnail" | "complete";
 
 const Index = () => {
   const { user, loading } = useAuth();
   const [appState, setAppState] = useState<AppState>("home");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedQuality, setSelectedQuality] = useState("1080p");
-  const [progress, setProgress] = useState(0);
-  const [resultVideoUrl, setResultVideoUrl] = useState<string>("");
+  const [generationStep, setGenerationStep] = useState<GenerationStep>("titles");
+  const [topic, setTopic] = useState("");
+  const [titles, setTitles] = useState<string[]>([]);
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleFileSelect = (file: File) => {
-    setSelectedFile(file);
-    // Show auth modal if user is not logged in
-    if (!user) {
-      setShowAuthModal(true);
-    }
-  };
-
-  const handleClearFile = () => {
-    setSelectedFile(null);
-  };
-
-  const handleStartProcessing = () => {
-    if (!selectedFile) return;
-    
-    // If not logged in, show auth modal
+  const handleGenerate = async (inputTopic: string) => {
     if (!user) {
       setShowAuthModal(true);
       return;
     }
 
-    setAppState("processing");
-    setProgress(0);
+    setTopic(inputTopic);
+    setIsLoading(true);
+    setAppState("generating");
+    setGenerationStep("titles");
 
-    // Simulate processing (in real app, this would call your backend)
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          // Create a preview URL from the original file
-          const url = URL.createObjectURL(selectedFile);
-          setResultVideoUrl(url);
-          setAppState("result");
-          return 100;
-        }
-        return prev + Math.random() * 3 + 1;
+    try {
+      // Step 1: Generate titles
+      const { data: titleData, error: titleError } = await supabase.functions.invoke("generate-title", {
+        body: { topic: inputTopic },
       });
-    }, 200);
+
+      if (titleError) {
+        throw new Error(titleError.message || "Failed to generate titles");
+      }
+
+      if (titleData.error) {
+        throw new Error(titleData.error);
+      }
+
+      const generatedTitles = titleData.titles || [];
+      setTitles(generatedTitles);
+      setGenerationStep("thumbnail");
+
+      // Step 2: Generate thumbnail using the first title
+      const { data: thumbData, error: thumbError } = await supabase.functions.invoke("generate-thumbnail", {
+        body: { 
+          topic: inputTopic, 
+          title: generatedTitles[0] || inputTopic 
+        },
+      });
+
+      if (thumbError) {
+        throw new Error(thumbError.message || "Failed to generate thumbnail");
+      }
+
+      if (thumbData.error) {
+        throw new Error(thumbData.error);
+      }
+
+      setThumbnailUrl(thumbData.imageUrl);
+      setGenerationStep("complete");
+      setAppState("result");
+    } catch (error) {
+      console.error("Generation error:", error);
+      toast.error(error instanceof Error ? error.message : "Generation failed. Please try again.");
+      setAppState("home");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleReset = () => {
     setAppState("home");
-    setSelectedFile(null);
-    setProgress(0);
-    setResultVideoUrl("");
+    setTopic("");
+    setTitles([]);
+    setThumbnailUrl("");
+    setGenerationStep("titles");
   };
 
   const features = [
     {
-      icon: Sparkles,
-      title: "AI Enhancement",
-      description: "Advanced AI algorithms enhance every frame of your video",
+      icon: Youtube,
+      title: "Viral Titles",
+      description: "AI generates clickable, viral YouTube titles that get views",
+    },
+    {
+      icon: ImageIcon,
+      title: "AI Thumbnails",
+      description: "Beautiful thumbnails designed to maximize click-through rate",
     },
     {
       icon: Zap,
-      title: "Fast Processing",
-      description: "Get your HD video in minutes, not hours",
+      title: "Instant Results",
+      description: "Get your title and thumbnail in seconds, not hours",
     },
     {
-      icon: Shield,
-      title: "Secure & Private",
-      description: "Your videos are processed securely and never stored",
-    },
-    {
-      icon: Clock,
-      title: "No Limits",
-      description: "Enhance as many videos as you want",
+      icon: Sparkles,
+      title: "AI Powered",
+      description: "Using latest AI models for best quality results",
     },
   ];
 
@@ -107,51 +127,29 @@ const Index = () => {
             <section className="text-center max-w-4xl mx-auto mb-16">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary text-sm text-muted-foreground mb-6">
                 <Sparkles className="w-4 h-4 text-primary" />
-                AI-Powered Video Enhancement
+                AI-Powered YouTube Tools
               </div>
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold text-foreground mb-6 leading-tight">
-                Transform Your Videos to{" "}
-                <span className="text-gradient">Crystal Clear HD</span>
+                Generate Viral{" "}
+                <span className="text-gradient">Titles + Thumbnails</span>
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-                Upload any video and let our AI enhance it to stunning HD quality. 
-                Reduce blur, increase sharpness, and improve resolution in minutes.
+                Enter your video topic and let AI create clickable titles and 
+                eye-catching thumbnails that get more views.
               </p>
             </section>
 
-            {/* Upload Section */}
+            {/* Input Section */}
             <section className="max-w-2xl mx-auto mb-16">
               <div className="p-8 rounded-2xl bg-card/50 border border-border backdrop-blur-sm shadow-card">
-                <VideoUploader
-                  onFileSelect={handleFileSelect}
-                  selectedFile={selectedFile}
-                  onClear={handleClearFile}
-                />
-
-                {selectedFile && (
-                  <div className="mt-6 space-y-6">
-                    <QualitySelector
-                      selected={selectedQuality}
-                      onSelect={setSelectedQuality}
-                    />
-                    <Button
-                      variant="gradient"
-                      size="lg"
-                      className="w-full"
-                      onClick={handleStartProcessing}
-                    >
-                      Start Enhancement
-                      <ArrowRight className="w-5 h-5" />
-                    </Button>
-                  </div>
-                )}
+                <TopicInput onSubmit={handleGenerate} isLoading={isLoading} />
               </div>
             </section>
 
             {/* Features Section */}
             <section id="features" className="max-w-5xl mx-auto">
               <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground text-center mb-10">
-                Why Choose VideoHD?
+                Why Use TitleGen AI?
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {features.map((feature) => (
@@ -180,10 +178,10 @@ const Index = () => {
               </h2>
               <div className="flex flex-col md:flex-row items-center justify-between gap-8">
                 {[
-                  { step: "1", title: "Upload", desc: "Select your video file" },
-                  { step: "2", title: "Process", desc: "AI enhances your video" },
-                  { step: "3", title: "Download", desc: "Get your HD video" },
-                ].map((item, index) => (
+                  { step: "1", title: "Enter Topic", desc: "Type your video idea" },
+                  { step: "2", title: "AI Generates", desc: "Get titles + thumbnail" },
+                  { step: "3", title: "Download", desc: "Use on your video" },
+                ].map((item) => (
                   <div key={item.step} className="flex flex-col items-center text-center">
                     <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mb-4 shadow-glow">
                       <span className="text-2xl font-display font-bold text-primary-foreground">
@@ -194,11 +192,6 @@ const Index = () => {
                       {item.title}
                     </h3>
                     <p className="text-sm text-muted-foreground">{item.desc}</p>
-                    {index < 2 && (
-                      <div className="hidden md:block absolute">
-                        <ArrowRight className="w-6 h-6 text-muted-foreground/30" />
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -206,18 +199,18 @@ const Index = () => {
           </div>
         )}
 
-        {appState === "processing" && (
+        {appState === "generating" && (
           <div className="container mx-auto flex items-center justify-center min-h-[70vh]">
-            <ProcessingAnimation progress={Math.min(100, Math.round(progress))} />
+            <GeneratingAnimation step={generationStep} />
           </div>
         )}
 
-        {appState === "result" && selectedFile && (
+        {appState === "result" && (
           <div className="container mx-auto flex items-center justify-center min-h-[70vh]">
-            <ResultPreview
-              videoUrl={resultVideoUrl}
-              fileName={selectedFile.name}
-              quality={selectedQuality}
+            <GenerationResult
+              titles={titles}
+              thumbnailUrl={thumbnailUrl}
+              topic={topic}
               onReset={handleReset}
             />
           </div>
@@ -227,7 +220,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>© 2024 VideoHD. AI-powered video enhancement.</p>
+          <p>© 2024 TitleGen AI. AI-powered YouTube tools.</p>
         </div>
       </footer>
 
