@@ -4,6 +4,7 @@ import { TopicInput } from "@/components/TopicInput";
 import { GeneratingAnimation } from "@/components/GeneratingAnimation";
 import { GenerationResult } from "@/components/GenerationResult";
 import { AuthModal } from "@/components/AuthModal";
+import GenerationHistory from "@/components/GenerationHistory";
 import { Sparkles, Zap, Youtube, ImageIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +22,7 @@ const Index = () => {
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
 
   const handleGenerate = async (inputTopic: string) => {
     if (!user) {
@@ -69,6 +71,16 @@ const Index = () => {
 
       setThumbnailUrl(thumbData.imageUrl);
       setGenerationStep("complete");
+      
+      // Save to history
+      await supabase.from("generation_history").insert({
+        user_id: user.id,
+        topic: inputTopic,
+        titles: generatedTitles,
+        thumbnail_url: thumbData.imageUrl,
+      });
+      setHistoryRefresh((prev) => prev + 1);
+      
       setAppState("result");
     } catch (error) {
       console.error("Generation error:", error);
@@ -85,6 +97,17 @@ const Index = () => {
     setTitles([]);
     setThumbnailUrl("");
     setGenerationStep("titles");
+  };
+
+  const handleSelectHistory = (item: {
+    topic: string;
+    titles: string[];
+    thumbnail_url: string | null;
+  }) => {
+    setTopic(item.topic);
+    setTitles(item.titles);
+    setThumbnailUrl(item.thumbnail_url || "");
+    setAppState("result");
   };
 
   const features = [
@@ -144,6 +167,14 @@ const Index = () => {
               <div className="p-8 rounded-2xl bg-card/50 border border-border backdrop-blur-sm shadow-card">
                 <TopicInput onSubmit={handleGenerate} isLoading={isLoading} />
               </div>
+              
+              {/* Generation History */}
+              {user && (
+                <GenerationHistory 
+                  onSelect={handleSelectHistory} 
+                  refreshTrigger={historyRefresh}
+                />
+              )}
             </section>
 
             {/* Features Section */}
